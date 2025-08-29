@@ -29,7 +29,8 @@ const ExpenseSchema = Yup.object({
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const { data, loading, error, refetch } = useQuery<GetExpensesData>(GET_EXPENSES, { variables: { archived: false, order: "DESC" } });
+  const variables = { archived: false, order: "DESC" as const };
+  const { data, loading, error } = useQuery<GetExpensesData>(GET_EXPENSES, { variables });
   const [createExpense] = useMutation(CREATE_EXPENSE);
   const [deleteExpense] = useMutation(DELETE_EXPENSE);
   const [open, setOpen] = useState(false);
@@ -41,7 +42,7 @@ export default function ExpensesPage() {
           <BackButton />
         </div>
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Expenses</h1>
+          <h1 className="text-2xl font-semibold">Expenses</h1>
           <div className="flex gap-2">
             <Link href="/expenses/categories" className="inline-flex h-10 items-center rounded-md px-4 text-sm font-medium bg-[color:var(--accent2)] text-[color:var(--accent2-foreground)] hover:opacity-90">Categories</Link>
             <Button onClick={() => setOpen(true)}>New Expense</Button>
@@ -71,7 +72,7 @@ export default function ExpensesPage() {
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md text-blue-400 hover:text-blue-300 hover:bg-[rgba(30,64,175,0.15)]"
                     onClick={(ev) => ev.stopPropagation()}
                   >
-                    <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                    <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                       <path d="M13.5 5a1 1 0 0 0 0 2h3.086l-9.293 9.293a1 1 0 0 0 1.414 1.414L18 8.414V11.5a1 1 0 1 0 2 0v-6a1 1 0 0 0-1-1h-6.5Z"/>
                     </svg>
                     <span className="sr-only">Open</span>
@@ -84,11 +85,22 @@ export default function ExpensesPage() {
                     onClick={async (ev) => {
                       ev.stopPropagation();
                       if (!confirm('Delete this expense?')) return;
-                      await deleteExpense({ variables: { id: e.id } });
-                      refetch();
+                      await deleteExpense({
+                        variables: { id: e.id },
+                        optimisticResponse: { deleteExpense: true },
+                        update: (cache) => {
+                          const existing = cache.readQuery<GetExpensesData>({ query: GET_EXPENSES, variables });
+                          if (!existing) return;
+                          cache.writeQuery<GetExpensesData>({
+                            query: GET_EXPENSES,
+                            variables,
+                            data: { getExpenses: existing.getExpenses.filter((x) => x.id !== e.id) },
+                          });
+                        },
+                      });
                     }}
                   >
-                    <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                    <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                       <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm2 2h2v1h-2V5Zm-3 4a1 1 0 1 1 2 0v9a1 1 0 1 1-2 0V9Zm5 0a1 1 0 1 1 2 0v9a1 1 0 1 1-2 0V9Z"/>
                     </svg>
                     <span className="sr-only">Delete</span>
@@ -118,10 +130,22 @@ export default function ExpensesPage() {
               try {
                 const spending = values.spendingLimit === "" ? null : Number(values.spendingLimit);
                 const spendingInt = spending == null ? null : Math.max(0, Math.trunc(spending));
-                await createExpense({ variables: { title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt } });
+                await createExpense({
+                  variables: { title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt },
+                  update: (cache, { data: resp }) => {
+                    if (!resp?.createExpense) return;
+                    const existing = cache.readQuery<GetExpensesData>({ query: GET_EXPENSES, variables });
+                    if (!existing) return;
+                    cache.writeQuery<GetExpensesData>({
+                      query: GET_EXPENSES,
+                      variables,
+                      data: { getExpenses: [resp.createExpense, ...existing.getExpenses] },
+                    });
+                  },
+                });
                 resetForm();
                 setOpen(false);
-                refetch();
+                // Apollo cache update keeps UI in sync without refetch
               } catch (e: any) {
                 setStatus(e?.message ?? "Create failed");
               } finally {
@@ -145,7 +169,7 @@ export default function ExpensesPage() {
                   <Field id="spendingLimit" name="spendingLimit" as={Input} type="number" min="0" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Field id="monthlyRecurring" name="monthlyRecurring" type="checkbox" className="h-4 w-4" />
+                  <Field id="monthlyRecurring" name="monthlyRecurring" type="checkbox" className="h-5 w-5" />
                   <Label htmlFor="monthlyRecurring">Monthly recurring</Label>
                 </div>
                 {status && <p className="text-sm text-red-500">{status}</p>}

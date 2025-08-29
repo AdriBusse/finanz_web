@@ -11,13 +11,13 @@ export function MainNav({ user }: { user: MinimalUser | null }) {
 
   const linkCls = (href: string, extra?: string) =>
     cn(
-      "inline-flex h-9 items-center rounded-md px-3 hover:bg-muted",
+      "inline-flex h-10 items-center rounded-md px-4 hover:bg-muted",
       isActive(href) ? "text-[color:var(--accent)]" : "",
       extra
     );
 
   return (
-    <nav className="ml-auto flex gap-2 text-sm items-center">
+    <nav className="ml-auto flex gap-3 text-base items-center">
       {user ? (
         <>
           <span className="text-muted hidden sm:inline">{user.username}</span>
@@ -34,4 +34,3 @@ export function MainNav({ user }: { user: MinimalUser | null }) {
     </nav>
   );
 }
-

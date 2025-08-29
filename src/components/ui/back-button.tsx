@@ -13,11 +13,10 @@ export function BackButton({ className }: { className?: string }) {
   if (!canGoBack) return null;
   return (
     <Button type="button" variant="ghost" size="sm" className={className} onClick={() => router.back()} title="Back">
-      <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+      <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <path d="M10.828 4.586a2 2 0 0 1 0 2.828L8.242 10h11.09a2 2 0 1 1 0 4H8.242l2.586 2.586a2 2 0 1 1-2.828 2.828l-6-6a2 2 0 0 1 0-2.828l6-6a2 2 0 0 1 2.828 0Z"/>
       </svg>
       <span className="sr-only">Back</span>
     </Button>
   );
 }
-

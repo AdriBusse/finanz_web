@@ -33,9 +33,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <header className="px-4 py-3 bg-surface border-b border-default flex items-center gap-4">
-          <Link href="/" className="font-semibold">Finanz</Link>
-          <MainNav user={user} />
+        <header className="bg-surface border-b border-default">
+          <div className="mx-auto w-full max-w-6xl px-6 py-3 flex items-center gap-4">
+            <Link href="/" className="font-semibold">Finanz</Link>
+            <MainNav user={user} />
+          </div>
         </header>
         <AppApolloProvider>
           <CategoryMetadataProvider>

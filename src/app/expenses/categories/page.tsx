@@ -29,7 +29,7 @@ const CategorySchema = Yup.object({
 
 export default function ExpenseCategoriesPage() {
   const { icons, getIconByKeyword } = useCategoryMetadata();
-  const { data, loading, error, refetch } = useQuery<CategoriesData>(GET_EXPENSE_CATEGORIES);
+  const { data, loading, error } = useQuery<CategoriesData>(GET_EXPENSE_CATEGORIES);
   const [createMutation] = useMutation(CREATE_EXPENSE_CATEGORY);
   const [updateMutation] = useMutation(UPDATE_EXPENSE_CATEGORY);
   const [deleteMutation] = useMutation(DELETE_EXPENSE_CATEGORY);
@@ -45,7 +45,7 @@ export default function ExpenseCategoriesPage() {
           <BackButton />
         </div>
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Categories</h1>
+          <h1 className="text-2xl font-semibold">Categories</h1>
           <Button variant="accent2" onClick={() => setOpenCreate(true)}>New Category</Button>
         </div>
         {loading && (
@@ -77,7 +77,7 @@ export default function ExpenseCategoriesPage() {
                         className="text-blue-400 hover:text-blue-300 hover:bg-[rgba(30,64,175,0.15)]"
                         onClick={() => { setEditing(c); setOpenEdit(true); }}
                       >
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                           <path d="M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5ZM21.7 6.04a1 1 0 0 0 0-1.41l-2.33-2.33a1 1 0 0 0-1.41 0l-1.59 1.59 3.74 3.74 1.59-1.59Z"/>
                         </svg>
                         <span className="sr-only">Edit</span>
@@ -89,11 +89,21 @@ export default function ExpenseCategoriesPage() {
                         className="text-red-400 hover:text-red-300 hover:bg-[rgba(127,29,29,0.15)]"
                         onClick={async () => {
                           if (!confirm('Delete this category?')) return;
-                          await deleteMutation({ variables: { id: c.id } });
-                          await refetch();
+                          await deleteMutation({
+                            variables: { id: c.id },
+                            optimisticResponse: { deleteExpenseCategory: true },
+                            update: (cache) => {
+                              const existing = cache.readQuery<CategoriesData>({ query: GET_EXPENSE_CATEGORIES });
+                              if (!existing) return;
+                              cache.writeQuery<CategoriesData>({
+                                query: GET_EXPENSE_CATEGORIES,
+                                data: { getExpenseCategories: (existing.getExpenseCategories || []).filter(x => x.id !== c.id) },
+                              });
+                            },
+                          });
                         }}
                       >
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                           <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm2 2h2v1h-2V5Zm-3 4a1 1 0 1 1 2 0v9a1 1 0 1 1-2 0V9Zm5 0a1 1 0 1 1 2 0v9a1 1 0 1 1-2 0V9Z"/>
                         </svg>
                         <span className="sr-only">Delete</span>
@@ -116,10 +126,23 @@ export default function ExpenseCategoriesPage() {
             validationSchema={CategorySchema}
             onSubmit={async (values, { setSubmitting, resetForm, setStatus }) => {
               try {
-                await createMutation({ variables: { name: values.name, color: values.color || null, icon: values.icon || null } });
+                await createMutation({
+                  variables: { name: values.name, color: values.color || null, icon: values.icon || null },
+                  update: (cache, { data: resp }) => {
+                    if (!resp?.createExpenseCategory) return;
+                    const existing = cache.readQuery<CategoriesData>({ query: GET_EXPENSE_CATEGORIES });
+                    cache.writeQuery<CategoriesData>({
+                      query: GET_EXPENSE_CATEGORIES,
+                      data: { getExpenseCategories: [
+                        ...(existing?.getExpenseCategories ?? []),
+                        resp.createExpenseCategory,
+                      ] },
+                    });
+                  },
+                });
                 resetForm();
                 setOpenCreate(false);
-                await refetch();
+                // Apollo cache update keeps UI in sync without refetch
               } catch (e: any) {
                 setStatus(e?.message ?? 'Create failed');
               } finally {
@@ -173,8 +196,19 @@ export default function ExpenseCategoriesPage() {
             onSubmit={async (values, { setSubmitting, setStatus }) => {
               try {
                 if (!editing) return;
-                await updateMutation({ variables: { id: editing.id, name: values.name, color: values.color || null, icon: values.icon || null } });
-                await refetch();
+                await updateMutation({
+                  variables: { id: editing.id, name: values.name, color: values.color || null, icon: values.icon || null },
+                  update: (cache, { data: resp }) => {
+                    const updated = resp?.updateExpenseCategory;
+                    if (!updated) return;
+                    const existing = cache.readQuery<CategoriesData>({ query: GET_EXPENSE_CATEGORIES });
+                    if (!existing) return;
+                    cache.writeQuery<CategoriesData>({
+                      query: GET_EXPENSE_CATEGORIES,
+                      data: { getExpenseCategories: existing.getExpenseCategories.map((x) => x.id === updated.id ? updated : x) },
+                    });
+                  },
+                });
                 setOpenEdit(false);
                 setEditing(null);
               } catch (e: any) {

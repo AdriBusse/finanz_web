@@ -56,7 +56,7 @@ export default function ExpenseDetailsPage() {
   const { getIconByKeyword } = useCategoryMetadata();
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { data, loading, error, refetch } = useQuery<GetExpenseData>(GET_EXPENSE, { variables: { id } });
+  const { data, loading, error } = useQuery<GetExpenseData>(GET_EXPENSE, { variables: { id } });
   const { data: catData } = useQuery<CategoriesData>(GET_EXPENSE_CATEGORIES);
   const [updateExpense] = useMutation(UPDATE_EXPENSE);
   const [createTx] = useMutation(CREATE_EXPENSE_TRANSACTION);
@@ -82,8 +82,8 @@ export default function ExpenseDetailsPage() {
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-baseline gap-4">
-          <h1 className="text-xl font-semibold">{expense.title}</h1>
-          <div className="text-2xl font-semibold tabular-nums">{formatAmount(expense.sum, expense.currency)}</div>
+          <h1 className="text-2xl font-semibold">{expense.title}</h1>
+          <div className="text-3xl font-semibold tabular-nums">{formatAmount(expense.sum, expense.currency)}</div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setOpenEdit(true)}>Edit Expense</Button>
@@ -141,8 +141,18 @@ export default function ExpenseDetailsPage() {
               try {
                 const spending = values.spendingLimit === "" ? null : Number(values.spendingLimit);
                 const spendingInt = spending == null ? null : Math.max(0, Math.trunc(spending));
-                await updateExpense({ variables: { id: expense.id, title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt, archived: values.archived } });
-                await refetch();
+                await updateExpense({
+                  variables: { id: expense.id, title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt, archived: values.archived },
+                  update: (cache, { data: resp }) => {
+                    const updated = resp?.updateExpense;
+                    if (!updated) return;
+                    cache.writeQuery<GetExpenseData>({
+                      query: GET_EXPENSE,
+                      variables: { id },
+                      data: { getExpense: { ...updated, transactions: expense.transactions } },
+                    });
+                  },
+                });
                 setOpenEdit(false);
               } catch (e: any) {
                 setStatus(e?.message ?? "Update failed");
@@ -167,11 +177,11 @@ export default function ExpenseDetailsPage() {
                   <Field id="spendingLimit" name="spendingLimit" as={Input} type="number" min="0" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Field id="monthlyRecurring" name="monthlyRecurring" type="checkbox" className="h-4 w-4" />
+                  <Field id="monthlyRecurring" name="monthlyRecurring" type="checkbox" className="h-5 w-5" />
                   <Label htmlFor="monthlyRecurring">Monthly recurring</Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Field id="archived" name="archived" type="checkbox" className="h-4 w-4" />
+                  <Field id="archived" name="archived" type="checkbox" className="h-5 w-5" />
                   <Label htmlFor="archived">Archived</Label>
                 </div>
                 {status && <p className="text-sm text-red-500">{status}</p>}
@@ -195,9 +205,27 @@ export default function ExpenseDetailsPage() {
             onSubmit={async (values, { setSubmitting, resetForm, setStatus }) => {
               try {
                 const dateNum = values.date ? values.date.getTime() : undefined;
-                await createTx({ variables: { expenseId: expense.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null, date: dateNum } });
+                await createTx({
+                  variables: { expenseId: expense.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null, date: dateNum },
+                  update: (cache, { data: resp }) => {
+                    const created = resp?.createExpenseTransaction;
+                    if (!created) return;
+                    const existing = cache.readQuery<GetExpenseData>({ query: GET_EXPENSE, variables: { id } });
+                    if (!existing?.getExpense) return;
+                    cache.writeQuery<GetExpenseData>({
+                      query: GET_EXPENSE,
+                      variables: { id },
+                      data: {
+                        getExpense: {
+                          ...existing.getExpense,
+                          sum: existing.getExpense.sum + created.amount,
+                          transactions: [created, ...existing.getExpense.transactions],
+                        },
+                      },
+                    });
+                  },
+                });
                 resetForm();
-                await refetch();
                 setOpenTx(false);
               } catch (e: any) {
                 setStatus(e?.message ?? "Create failed");
@@ -262,8 +290,28 @@ export default function ExpenseDetailsPage() {
               try {
                 if (!editingTx) return;
                 const dateStr = values.date ? values.date.toISOString() : undefined;
-                await updateTx({ variables: { transactionId: editingTx.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null, date: dateStr } });
-                await refetch();
+                await updateTx({
+                  variables: { transactionId: editingTx.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null, date: dateStr },
+                  update: (cache, { data: resp }) => {
+                    const updated = resp?.updateExpenseTransaction;
+                    if (!updated) return;
+                    const existing = cache.readQuery<GetExpenseData>({ query: GET_EXPENSE, variables: { id } });
+                    if (!existing?.getExpense) return;
+                    const prev = existing.getExpense.transactions.find(t => t.id === updated.id);
+                    const diff = prev ? (updated.amount - prev.amount) : 0;
+                    cache.writeQuery<GetExpenseData>({
+                      query: GET_EXPENSE,
+                      variables: { id },
+                      data: {
+                        getExpense: {
+                          ...existing.getExpense,
+                          sum: existing.getExpense.sum + diff,
+                          transactions: existing.getExpense.transactions.map(t => t.id === updated.id ? { ...t, ...updated } : t),
+                        },
+                      },
+                    });
+                  },
+                });
                 setOpenEditTx(false);
                 setEditingTx(null);
               } catch (e: any) {
@@ -340,7 +388,7 @@ export default function ExpenseDetailsPage() {
                         className="text-blue-400 hover:text-blue-300 hover:bg-[rgba(30,64,175,0.15)]"
                         onClick={() => { setEditingTx(t); setOpenEditTx(true); }}
                       >
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                           <path d="M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5ZM21.7 6.04a1 1 0 0 0 0-1.41l-2.33-2.33a1 1 0 0 0-1.41 0l-1.59 1.59 3.74 3.74 1.59-1.59Z"/>
                         </svg>
                         <span className="sr-only">Edit</span>
@@ -353,11 +401,29 @@ export default function ExpenseDetailsPage() {
                         onClick={async () => {
                           const ok = window.confirm("Delete this transaction? This cannot be undone.");
                           if (!ok) return;
-                          await deleteTx({ variables: { id: t.id } });
-                          await refetch();
+                          await deleteTx({
+                            variables: { id: t.id },
+                            optimisticResponse: { deleteExpenseTransaction: true },
+                            update: (cache) => {
+                              const existing = cache.readQuery<GetExpenseData>({ query: GET_EXPENSE, variables: { id } });
+                              if (!existing?.getExpense) return;
+                              const removed = existing.getExpense.transactions.find(x => x.id === t.id);
+                              cache.writeQuery<GetExpenseData>({
+                                query: GET_EXPENSE,
+                                variables: { id },
+                                data: {
+                                  getExpense: {
+                                    ...existing.getExpense,
+                                    sum: removed ? (existing.getExpense.sum - removed.amount) : existing.getExpense.sum,
+                                    transactions: existing.getExpense.transactions.filter(x => x.id !== t.id),
+                                  },
+                                },
+                              });
+                            },
+                          });
                         }}
                       >
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                           <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm2 2h2v1h-2V5Zm-3 4a1 1 0 1 1 2 0v9a1 1 0 1 1-2 0V9Zm5 0a1 1 0 1 1 2 0v9a1 1 0 1 1-2 0V9Z"/>
                         </svg>
                         <span className="sr-only">Delete</span>

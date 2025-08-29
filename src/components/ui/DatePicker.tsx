@@ -31,12 +31,12 @@ export function DatePicker({
     <div ref={ref} className={cn("relative", className)}>
       <button
         type="button"
-        className="flex h-10 w-full items-center justify-between rounded-md border border-default bg-muted px-3 text-left"
+        className="flex h-11 w-full items-center justify-between rounded-md border border-default bg-muted px-4 text-left text-base"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="text-sm">{label}</span>
+        <span className="text-base">{label}</span>
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="h-4 w-4 text-muted"><path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z"/></svg>
       </button>
       {open && (
@@ -67,4 +67,3 @@ function formatDate(d: Date) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-
