@@ -117,7 +117,8 @@ export default function ExpensesPage() {
             onSubmit={async (values, { setSubmitting, setStatus, resetForm }) => {
               try {
                 const spending = values.spendingLimit === "" ? null : Number(values.spendingLimit);
-                await createExpense({ variables: { title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spending } });
+                const spendingInt = spending == null ? null : Math.max(0, Math.trunc(spending));
+                await createExpense({ variables: { title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt } });
                 resetForm();
                 setOpen(false);
                 refetch();

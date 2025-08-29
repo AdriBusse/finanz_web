@@ -18,6 +18,7 @@ type Query {
   searchETF(searchKey: String!): ETFSearch!
   getExpenses(archived: Boolean, order: String = "DESC"): [Expense!]!
   getExpenseCategories: [ExpenseCategory!]
+  categoryMetadata: CategoryMetadataGQL!
   getExpense(id: String!): Expense
   me: User
   getUser(username: String!): User!
@@ -285,6 +286,23 @@ type ExpenseByCategory {
   amount: Float!
   icon: String!
   color: String!
+}
+
+type CategoryMetadataGQL {
+  colors: [ColorOptionGQL!]!
+  icons: [IconOptionGQL!]!
+}
+
+type ColorOptionGQL {
+  key: String!
+  hex: String!
+  label: String!
+}
+
+type IconOptionGQL {
+  keyword: String!
+  icon: String!
+  label: String!
 }
 
 type UserSummary {

@@ -1,43 +1,54 @@
 export function currencySymbol(code?: string | null): string {
-  const key = (code || "").toUpperCase();
+  const original = code || "";
+  const key = original.toUpperCase();
+  let symbol: string | undefined;
   switch (key) {
     case "EUR":
-      return "€";
+      symbol = "€"; break;
     case "USD":
-      return "$";
+      symbol = "$"; break;
     case "GBP":
-      return "£";
+      symbol = "£"; break;
     case "JPY":
-      return "¥";
+      symbol = "¥"; break;
     case "CHF":
-      return "CHF";
+      symbol = "CHF"; break;
     case "AUD":
-      return "A$";
+      symbol = "A$"; break;
     case "CAD":
-      return "C$";
+      symbol = "C$"; break;
     case "SEK":
-      return "kr";
+      symbol = "kr"; break;
     case "NOK":
-      return "kr";
+      symbol = "kr"; break;
     case "DKK":
-      return "kr";
+      symbol = "kr"; break;
     case "PLN":
-      return "zł";
+      symbol = "zł"; break;
     case "CZK":
-      return "Kč";
+      symbol = "Kč"; break;
     case "CNY":
-      return "¥";
+      symbol = "¥"; break;
     case "INR":
-      return "₹";
+      symbol = "₹"; break;
     case "BRL":
-      return "R$";
+      symbol = "R$"; break;
     case "TRY":
-      return "₺";
+      symbol = "₺"; break;
     case "ZAR":
-      return "R";
-    default:
-      return key || "";
+      symbol = "R"; break;
+    default: {
+      // No mapping: return the original code as provided
+      return original;
+    }
   }
+
+  // If the mapped symbol is just the uppercased code (alphabetic only),
+  // return the original code to preserve its casing from the backend.
+  if (symbol && /^[A-Za-z]+$/.test(symbol) && symbol.toUpperCase() === key) {
+    return original;
+  }
+  return symbol || original;
 }
 
 export function formatAmount(amount: number, code?: string | null): string {

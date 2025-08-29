@@ -16,9 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader as ModalHeader, DialogTitle as ModalTitle } from "@/components/ui/dialog";
 import { currencySymbol, formatAmount } from "@/lib/currency";
-import { getIconByKeyword } from "@/lib/icon_mapper";
+import { useCategoryMetadata } from "@/state/CategoryMetadataContext";
 import { BackButton } from "@/components/ui/back-button";
 import { useMutation, useQuery } from "@apollo/client/react";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { Progress } from "@/components/ui/progress";
 
 type GetExpenseData = { getExpense: Expense & { transactions: ExpenseTransaction[] } };
 type CategoriesData = { getExpenseCategories: ExpenseCategory[] };
@@ -35,6 +37,7 @@ const TxSchema = Yup.object({
   describtion: Yup.string().required("Required"),
   amount: Yup.number().required().min(0.01, "Must be > 0"),
   categoryId: Yup.string().nullable(),
+  date: Yup.date().nullable(),
 });
 
 function groupByDate(transactions: ExpenseTransaction[]) {
@@ -50,6 +53,7 @@ function groupByDate(transactions: ExpenseTransaction[]) {
 }
 
 export default function ExpenseDetailsPage() {
+  const { getIconByKeyword } = useCategoryMetadata();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { data, loading, error, refetch } = useQuery<GetExpenseData>(GET_EXPENSE, { variables: { id } });
@@ -103,6 +107,22 @@ export default function ExpenseDetailsPage() {
         </CardContent>
       </Card>
 
+      {expense.spendingLimit != null && (
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <div className="text-sm text-muted">Progress</div>
+            <div className="text-xs text-muted tabular-nums">
+              {formatAmount(expense.sum, expense.currency)} / {formatAmount(expense.spendingLimit, expense.currency)}
+            </div>
+          </div>
+          {(() => {
+            const percent = Math.min(100, (expense.sum / (expense.spendingLimit || 1)) * 100);
+            const status = percent >= 95 ? "danger" : "normal";
+            return <Progress value={percent} status={status} />;
+          })()}
+        </div>
+      )}
+
       {/* Edit Expense Modal */}
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
         <ModalHeader><ModalTitle>Edit Expense</ModalTitle></ModalHeader>
@@ -120,7 +140,8 @@ export default function ExpenseDetailsPage() {
             onSubmit={async (values, { setSubmitting, setStatus }) => {
               try {
                 const spending = values.spendingLimit === "" ? null : Number(values.spendingLimit);
-                await updateExpense({ variables: { id: expense.id, title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spending, archived: values.archived } });
+                const spendingInt = spending == null ? null : Math.max(0, Math.trunc(spending));
+                await updateExpense({ variables: { id: expense.id, title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt, archived: values.archived } });
                 await refetch();
                 setOpenEdit(false);
               } catch (e: any) {
@@ -169,11 +190,12 @@ export default function ExpenseDetailsPage() {
         <ModalHeader><ModalTitle>New Transaction</ModalTitle></ModalHeader>
         <DialogContent>
           <Formik
-            initialValues={{ describtion: "", amount: "" as any, categoryId: "" }}
+            initialValues={{ describtion: "", amount: "" as any, categoryId: "", date: new Date() }}
             validationSchema={TxSchema}
             onSubmit={async (values, { setSubmitting, resetForm, setStatus }) => {
               try {
-                await createTx({ variables: { expenseId: expense.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null } });
+                const dateNum = values.date ? values.date.getTime() : undefined;
+                await createTx({ variables: { expenseId: expense.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null, date: dateNum } });
                 resetForm();
                 await refetch();
                 setOpenTx(false);
@@ -194,6 +216,14 @@ export default function ExpenseDetailsPage() {
                 <div>
                   <Label htmlFor="amount">Amount ({currencySymbol(expense.currency)})</Label>
                   <Field id="amount" name="amount" as={Input} type="number" step="0.01" />
+                </div>
+                <div>
+                  <Label htmlFor="date">Date</Label>
+                  <Field name="date">
+                    {({ field, form }: any) => (
+                      <DatePicker value={field.value} onChange={(d) => form.setFieldValue(field.name, d)} />
+                    )}
+                  </Field>
                 </div>
                 <div>
                   <Label htmlFor="categoryId">Category</Label>
@@ -225,12 +255,14 @@ export default function ExpenseDetailsPage() {
               describtion: editingTx?.describtion ?? "",
               amount: (editingTx?.amount != null ? String(editingTx.amount) : "") as any,
               categoryId: editingTx?.category?.id ?? "",
+              date: editingTx?.createdAt ? new Date(editingTx.createdAt) : new Date(),
             }}
             validationSchema={TxSchema}
             onSubmit={async (values, { setSubmitting, setStatus }) => {
               try {
                 if (!editingTx) return;
-                await updateTx({ variables: { transactionId: editingTx.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null } });
+                const dateStr = values.date ? values.date.toISOString() : undefined;
+                await updateTx({ variables: { transactionId: editingTx.id, describtion: values.describtion, amount: Number(values.amount), categoryId: values.categoryId || null, date: dateStr } });
                 await refetch();
                 setOpenEditTx(false);
                 setEditingTx(null);
@@ -251,6 +283,14 @@ export default function ExpenseDetailsPage() {
                 <div>
                   <Label htmlFor="amount">Amount ({currencySymbol(expense.currency)})</Label>
                   <Field id="amount" name="amount" as={Input} type="number" step="0.01" />
+                </div>
+                <div>
+                  <Label htmlFor="date">Date</Label>
+                  <Field name="date">
+                    {({ field, form }: any) => (
+                      <DatePicker value={field.value} onChange={(d) => form.setFieldValue(field.name, d)} />
+                    )}
+                  </Field>
                 </div>
                 <div>
                   <Label htmlFor="categoryId">Category</Label>

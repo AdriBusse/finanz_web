@@ -22,11 +22,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
-      <p>Welcome, <b>{user.username}</b></p>
-      <div>
-        <Link href="/expenses" className="inline-flex h-10 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:opacity-90">Go to Expenses</Link>
+    <div className="p-6">
+      <div className="mx-auto w-full max-w-3xl space-y-4">
+        <h1 className="text-xl font-semibold">Dashboard</h1>
+        <p>Welcome, <b>{user.username}</b></p>
+        <div>
+          <Link href="/expenses" className="inline-flex h-10 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:opacity-90">Go to Expenses</Link>
+        </div>
       </div>
     </div>
   );

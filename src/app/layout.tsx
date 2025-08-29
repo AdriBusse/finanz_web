@@ -4,6 +4,7 @@ import Link from "next/link";
 import { parseUserCookie } from "@/lib/auth";
 import "./globals.css";
 import { AppApolloProvider } from "@/components/providers/AppApolloProvider";
+import { CategoryMetadataProvider } from "@/state/CategoryMetadataContext";
 import { MainNav } from "@/components/nav/MainNav";
 
 const geistSans = Geist({
@@ -37,7 +38,9 @@ export default function RootLayout({
           <MainNav user={user} />
         </header>
         <AppApolloProvider>
-          {children}
+          <CategoryMetadataProvider>
+            {children}
+          </CategoryMetadataProvider>
         </AppApolloProvider>
       </body>
     </html>

@@ -13,8 +13,8 @@ import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ICON_MAPPING, getIconByKeyword } from "@/lib/icon_mapper";
-import { CATEGORY_COLORS, getHexByKey, getKeyByHex, hexToRgba } from "@/lib/category_colors";
+import { useCategoryMetadata } from "@/state/CategoryMetadataContext";
+import { hexToRgba } from "@/lib/color";
 import { Spinner } from "@/components/ui/spinner";
 import { BackButton } from "@/components/ui/back-button";
 import { ColorDropdown } from "@/components/forms/ColorDropdown";
@@ -28,6 +28,7 @@ const CategorySchema = Yup.object({
 });
 
 export default function ExpenseCategoriesPage() {
+  const { icons, getIconByKeyword } = useCategoryMetadata();
   const { data, loading, error, refetch } = useQuery<CategoriesData>(GET_EXPENSE_CATEGORIES);
   const [createMutation] = useMutation(CREATE_EXPENSE_CATEGORY);
   const [updateMutation] = useMutation(UPDATE_EXPENSE_CATEGORY);
@@ -145,7 +146,7 @@ export default function ExpenseCategoriesPage() {
                   <Label htmlFor="icon">Icon</Label>
                   <Field id="icon" name="icon" as="select" className="mt-1 block w-full rounded-md border border-default bg-muted px-3 py-2 text-sm">
                     <option value="">— None —</option>
-                    {ICON_MAPPING.map((opt) => (
+                    {icons.map((opt) => (
                       <option key={opt.keyword} value={opt.keyword}>{opt.icon}</option>
                     ))}
                   </Field>
@@ -202,7 +203,7 @@ export default function ExpenseCategoriesPage() {
                   <Label htmlFor="icon">Icon</Label>
                   <Field id="icon" name="icon" as="select" className="mt-1 block w-full rounded-md border border-default bg-muted px-3 py-2 text-sm">
                     <option value="">— None —</option>
-                    {ICON_MAPPING.map((opt) => (
+                    {icons.map((opt) => (
                       <option key={opt.keyword} value={opt.keyword}>{opt.icon}</option>
                     ))}
                   </Field>

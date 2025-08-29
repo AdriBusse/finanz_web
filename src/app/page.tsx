@@ -1,6 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getAccessTokenFromCookies } from "@/lib/auth";
 
 export default function Home() {
+  const token = getAccessTokenFromCookies();
+  if (token) {
+    redirect("/dashboard");
+  }
   return (
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Welcome to Finanz</h1>

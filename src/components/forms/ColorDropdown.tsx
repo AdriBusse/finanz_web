@@ -1,19 +1,21 @@
 "use client";
 import * as React from "react";
-import { CATEGORY_COLORS, CategoryColorOption } from "@/lib/category_colors";
 import { cn } from "@/lib/cn";
+import type { ColorOption } from "@/graphql/types/ColorOption";
+import { useCategoryMetadata } from "@/state/CategoryMetadataContext";
 
 export function ColorDropdown({
   value,
   onChange,
-  options = CATEGORY_COLORS,
+  options,
   className,
 }: {
   value?: string | null;
   onChange: (hex: string) => void;
-  options?: CategoryColorOption[];
+  options?: ColorOption[];
   className?: string;
 }) {
+  const { colors } = useCategoryMetadata();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
 
@@ -26,7 +28,8 @@ export function ColorDropdown({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const selected = options.find((o) => o.hex.toLowerCase() === (value ?? "").toLowerCase());
+  const list = options ?? colors;
+  const selected = list.find((o) => o.hex.toLowerCase() === (value ?? "").toLowerCase());
 
   return (
     <div ref={ref} className={cn("relative", className)}>
@@ -45,7 +48,7 @@ export function ColorDropdown({
       </button>
       {open && (
         <div role="listbox" className="absolute z-50 mt-1 w-full rounded-md border border-default bg-surface p-2 shadow-lg grid grid-cols-8 gap-2">
-          {options.map((o) => (
+          {list.map((o) => (
             <button
               key={o.key}
               type="button"
@@ -67,4 +70,3 @@ export function ColorDropdown({
     </div>
   );
 }
-
