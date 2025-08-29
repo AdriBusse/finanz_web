@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
+import { parseUserCookie } from "@/lib/auth";
 import "./globals.css";
+import { AppApolloProvider } from "@/components/providers/AppApolloProvider";
+import { MainNav } from "@/components/nav/MainNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,12 +26,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = parseUserCookie();
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <header className="px-4 py-3 bg-surface border-b border-default flex items-center gap-4">
+          <Link href="/" className="font-semibold">Finanz</Link>
+          <MainNav user={user} />
+        </header>
+        <AppApolloProvider>
+          {children}
+        </AppApolloProvider>
       </body>
     </html>
   );
