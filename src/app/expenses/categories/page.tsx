@@ -18,6 +18,7 @@ import { hexToRgba } from "@/lib/color";
 import { Spinner } from "@/components/ui/spinner";
 import { BackButton } from "@/components/ui/back-button";
 import { ColorDropdown } from "@/components/forms/ColorDropdown";
+import FAB from "@/components/ui/FAB";
 
 type CategoriesData = { getExpenseCategories: ExpenseCategory[] };
 
@@ -252,6 +253,7 @@ export default function ExpenseCategoriesPage() {
           </Formik>
         </DialogContent>
       </Dialog>
+      <FAB ariaLabel="New category" title="New category" onClick={() => setOpenCreate(true)} />
     </div>
   );
 }

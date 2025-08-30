@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildSessionCookies, clearAuthCookies, MinimalUser } from "@/lib/auth";
+import { buildSessionCookies, clearAuthCookies, MinimalUser, getAccessTokenFromCookies, parseUserCookie } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const { token, user, maxAge } = (await req.json()) as {
@@ -29,4 +29,10 @@ export async function DELETE() {
   const cookies = clearAuthCookies();
   cookies.forEach((c) => res.cookies.set(c.name, c.value, { path: c.path, maxAge: c.maxAge }));
   return res;
+}
+
+export async function GET() {
+  const token = await getAccessTokenFromCookies();
+  const user = await parseUserCookie();
+  return NextResponse.json({ authenticated: !!token, user: user ?? null });
 }

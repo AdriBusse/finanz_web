@@ -41,3 +41,8 @@ body {
 .bg-accent { background-color: var(--accent); }
 .text-accent-foreground { color: var(--accent-foreground); }
 .ring-accent { --tw-ring-color: var(--accent); }
+
+/* Ensure native checkboxes/radios use accent1 color */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--accent);
+}

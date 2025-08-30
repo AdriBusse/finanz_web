@@ -7,7 +7,7 @@ async function proxyGraphQL(req: Request) {
   if (!TARGET) {
     return NextResponse.json({ error: "GraphQL URL not configured" }, { status: 500 });
   }
-  const token = getAccessTokenFromCookies();
+  const token = await getAccessTokenFromCookies();
   const body = await req.text();
   const headers: Record<string, string> = {
     "content-type": "application/json",
@@ -32,4 +32,3 @@ async function proxyGraphQL(req: Request) {
 export async function POST(req: Request) {
   return proxyGraphQL(req);
 }
-

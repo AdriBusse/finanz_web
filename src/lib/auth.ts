@@ -9,14 +9,25 @@ export type MinimalUser = {
   email?: string | null;
 };
 
-export function getAccessTokenFromCookies(): string | null {
-  const jar = cookies();
-  return jar.get(TOKEN_COOKIE)?.value ?? null;
+async function readCookie(name: string): Promise<string | null> {
+  // Next 15 requires awaiting cookies(); older versions return a sync object.
+  const jar: any = await (cookies() as any);
+  let v: any = null;
+  if (jar && typeof jar.get === "function") {
+    v = jar.get(name);
+  }
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && typeof v.value === "string") return v.value;
+  return null;
 }
 
-export function parseUserCookie(): MinimalUser | null {
-  const jar = cookies();
-  const raw = jar.get(USER_COOKIE)?.value;
+export async function getAccessTokenFromCookies(): Promise<string | null> {
+  return readCookie(TOKEN_COOKIE);
+}
+
+export async function parseUserCookie(): Promise<MinimalUser | null> {
+  const raw = await readCookie(USER_COOKIE);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as MinimalUser;
@@ -62,4 +73,3 @@ export function clearAuthCookies() {
     { name: USER_COOKIE, value: "", path: "/", maxAge: 0 },
   ];
 }
-

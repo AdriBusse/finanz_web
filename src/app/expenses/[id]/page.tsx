@@ -16,11 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader as ModalHeader, DialogTitle as ModalTitle } from "@/components/ui/dialog";
 import { currencySymbol, formatAmount } from "@/lib/currency";
+import CountUp from "@/components/ui/react-bits/CountUp";
 import { useCategoryMetadata } from "@/state/CategoryMetadataContext";
 import { BackButton } from "@/components/ui/back-button";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Progress } from "@/components/ui/progress";
+import FAB from "@/components/ui/FAB";
+import Link from "next/link";
 
 type GetExpenseData = { getExpense: Expense & { transactions: ExpenseTransaction[] } };
 type CategoriesData = { getExpenseCategories: ExpenseCategory[] };
@@ -53,6 +56,7 @@ function groupByDate(transactions: ExpenseTransaction[]) {
 }
 
 export default function ExpenseDetailsPage() {
+  
   const { getIconByKeyword } = useCategoryMetadata();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -80,14 +84,33 @@ export default function ExpenseDetailsPage() {
       <div className="flex items-center justify-between">
         <BackButton />
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-baseline gap-4">
-          <h1 className="text-2xl font-semibold">{expense.title}</h1>
-          <div className="text-3xl font-semibold tabular-nums">{formatAmount(expense.sum, expense.currency)}</div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">{expense.title}</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Edit expense"
+              aria-label="Edit expense"
+              className="text-blue-400 hover:text-blue-300 hover:bg-[rgba(30,64,175,0.15)]"
+              onClick={() => setOpenEdit(true)}
+            >
+              <svg aria-hidden viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                <path d="M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5ZM21.7 6.04a1 1 0 0 0 0-1.41l-2.33-2.33a1 1 0 0 0-1.41 0l-1.59 1.59 3.74 3.74 1.59-1.59Z"/>
+              </svg>
+              <span className="sr-only">Edit</span>
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setOpenEdit(true)}>Edit Expense</Button>
+        <div className="text-3xl font-semibold tabular-nums">
+          <CountUp to={Math.round(expense.sum)} duration={0.5} separator="," />
+          {" "}
+          <span>{currencySymbol(expense.currency)}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => setOpenTx(true)}>New Transaction</Button>
+          <Link href={`/expenses/${expense.id}/stats`} className="inline-flex h-11 items-center rounded-md border border-default px-5 text-base hover:bg-muted">Stats</Link>
         </div>
       </div>
       <Card>
@@ -437,6 +460,7 @@ export default function ExpenseDetailsPage() {
         </CardContent>
       </Card>
       </div>
+      <FAB ariaLabel="New transaction" title="New transaction" onClick={() => setOpenTx(true)} />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GET_EXPENSES } from "@/graphql/queries/expenses/getExpenses";
 import { CREATE_EXPENSE } from "@/graphql/mutations/expenses/createExpense";
+import { GET_EXPENSE_TRANSACTION_TEMPLATES } from "@/graphql/queries/templates/getExpenseTransactionTemplates";
+import type { ExpenseTransactionTemplate } from "@/graphql/types/expenseTemplate";
 import { DELETE_EXPENSE } from "@/graphql/mutations/expenses/deleteExpense";
 import type { Expense } from "@/graphql/types/expenses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +19,7 @@ import { formatAmount } from "@/lib/currency";
 import { Spinner } from "@/components/ui/spinner";
 import { BackButton } from "@/components/ui/back-button";
 import { useMutation, useQuery } from "@apollo/client/react";
+import FAB from "@/components/ui/FAB";
 
 type GetExpensesData = { getExpenses: Expense[] };
 
@@ -27,11 +30,14 @@ const ExpenseSchema = Yup.object({
   spendingLimit: Yup.number().integer().min(0).nullable(),
 });
 
+type GetTemplatesData = { getExpenseTransactionTemplates: ExpenseTransactionTemplate[] };
+
 export default function ExpensesPage() {
   const router = useRouter();
   const variables = { archived: false, order: "DESC" as const };
   const { data, loading, error } = useQuery<GetExpensesData>(GET_EXPENSES, { variables });
   const [createExpense] = useMutation(CREATE_EXPENSE);
+  const { data: templatesData } = useQuery<GetTemplatesData>(GET_EXPENSE_TRANSACTION_TEMPLATES);
   const [deleteExpense] = useMutation(DELETE_EXPENSE);
   const [open, setOpen] = useState(false);
 
@@ -41,12 +47,34 @@ export default function ExpensesPage() {
         <div className="flex items-center justify-between">
           <BackButton />
         </div>
-        <div className="flex items-center justify-between">
+        <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Expenses</h1>
-          <div className="flex gap-2">
-            <Link href="/expenses/categories" className="inline-flex h-10 items-center rounded-md px-4 text-sm font-medium bg-[color:var(--accent2)] text-[color:var(--accent2-foreground)] hover:opacity-90">Categories</Link>
-            <Button onClick={() => setOpen(true)}>New Expense</Button>
-          </div>
+          <nav
+            role="group"
+            aria-label="Expense options"
+            className="flex w-full sm:inline-flex sm:w-auto rounded-md border border-default overflow-hidden text-center"
+          >
+            <Link
+              href="/expenses/templates"
+              className="inline-flex h-10 items-center justify-center px-3 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 ring-accent flex-1 sm:flex-none"
+            >
+              Templates
+            </Link>
+            <Link
+              href="/expenses/categories"
+              className="inline-flex h-10 items-center justify-center px-3 text-sm hover:bg-muted border-l border-default focus-visible:outline-none focus-visible:ring-2 ring-accent flex-1 sm:flex-none"
+            >
+              Categories
+            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen(true)}
+              className="h-10 rounded-none px-3 text-sm border-l border-default hover:bg-muted focus-visible:ring-2 ring-accent flex-1 sm:flex-none"
+            >
+              New Expense
+            </Button>
+          </nav>
         </div>
         {loading && (
           <div className="py-8 flex items-center justify-center">
@@ -108,9 +136,15 @@ export default function ExpensesPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-sm">Sum: {formatAmount(e.sum, e.currency)}</div>
+                <div className="text-sm">
+                  <span className="font-semibold">Sum:</span>{" "}
+                  <span className="tabular-nums font-normal">{formatAmount(e.sum, e.currency)}</span>
+                </div>
                 {e.spendingLimit != null && (
-                  <div className="text-sm">Limit: {formatAmount(e.spendingLimit, e.currency)}</div>
+                  <div className="text-xs text-muted">
+                    <span>Limit:</span>{" "}
+                    <span className="tabular-nums">{formatAmount(e.spendingLimit, e.currency)}</span>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -124,14 +158,26 @@ export default function ExpensesPage() {
         </DialogHeader>
         <DialogContent>
           <Formik
-            initialValues={{ title: "", currency: "", monthlyRecurring: false, spendingLimit: "" as any }}
+            enableReinitialize
+            initialValues={{ 
+              title: "", 
+              currency: "", 
+              monthlyRecurring: false, 
+              spendingLimit: "" as any,
+              selectedTemplates: (templatesData?.getExpenseTransactionTemplates ?? []).map(t => t.id) as string[],
+            }}
             validationSchema={ExpenseSchema}
             onSubmit={async (values, { setSubmitting, setStatus, resetForm }) => {
               try {
+                const allTemplateIds = (templatesData?.getExpenseTransactionTemplates ?? []).map(t => t.id);
+                const includeIds: string[] = values.selectedTemplates || [];
+                const skipTemplateIds = values.monthlyRecurring
+                  ? allTemplateIds.filter(id => !includeIds.includes(id))
+                  : undefined;
                 const spending = values.spendingLimit === "" ? null : Number(values.spendingLimit);
                 const spendingInt = spending == null ? null : Math.max(0, Math.trunc(spending));
                 await createExpense({
-                  variables: { title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt },
+                  variables: { title: values.title, currency: values.currency || null, monthlyRecurring: values.monthlyRecurring, spendingLimit: spendingInt, skipTemplateIds },
                   update: (cache, { data: resp }) => {
                     if (!resp?.createExpense) return;
                     const existing = cache.readQuery<GetExpensesData>({ query: GET_EXPENSES, variables });
@@ -153,7 +199,7 @@ export default function ExpensesPage() {
               }
             }}
           >
-            {({ errors, touched, isSubmitting, status }) => (
+            {({ errors, touched, isSubmitting, status, values, setFieldValue }) => (
               <Form className="space-y-3">
                 <div>
                   <Label htmlFor="title">Title</Label>
@@ -172,6 +218,35 @@ export default function ExpensesPage() {
                   <Field id="monthlyRecurring" name="monthlyRecurring" type="checkbox" className="h-5 w-5" />
                   <Label htmlFor="monthlyRecurring">Monthly recurring</Label>
                 </div>
+                {values.monthlyRecurring && (
+                  <div className="mt-2 space-y-2">
+                    <div className="text-sm font-medium">Apply templates</div>
+                    <div className="space-y-1">
+                      {(templatesData?.getExpenseTransactionTemplates ?? []).map(t => {
+                        const checked = values.selectedTemplates?.includes(t.id);
+                        return (
+                          <label key={t.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4"
+                              checked={!!checked}
+                              onChange={(e) => {
+                                const next = new Set(values.selectedTemplates || []);
+                                if (e.target.checked) next.add(t.id); else next.delete(t.id);
+                                setFieldValue('selectedTemplates', Array.from(next));
+                              }}
+                            />
+                            <span className="flex-1">{t.describtion}</span>
+                            <span className="tabular-nums text-muted">{formatAmount(t.amount)}</span>
+                          </label>
+                        );
+                      })}
+                      {!templatesData?.getExpenseTransactionTemplates?.length && (
+                        <div className="text-xs text-muted">No templates available.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {status && <p className="text-sm text-red-500">{status}</p>}
                 <div className="flex justify-end gap-2 pt-2">
                   <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
@@ -182,6 +257,7 @@ export default function ExpensesPage() {
           </Formik>
         </DialogContent>
       </Dialog>
+      <FAB ariaLabel="Create expense" title="Create expense" onClick={() => setOpen(true)} />
     </div>
   );
 }

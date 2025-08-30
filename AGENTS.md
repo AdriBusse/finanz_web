@@ -51,3 +51,6 @@
 
 ## Workflow
 - always let the use confirm when something need to be deleted
+
+## Data
+- the current graphql schema definition is placed in /.ai/graphql.schema
